@@ -11,7 +11,7 @@ export default function Index() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [showDetail, setShowDetail] = useState(false);
-  const [mascotPos, setMascotPos] = useState(8);
+  const [mascotPos, setMascotPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
   const [isMoving, setIsMoving] = useState(false);
   const [showUnlockEffect, setShowUnlockEffect] = useState(false);
   const [xp, setXp] = useState(0);
@@ -31,13 +31,16 @@ export default function Index() {
     });
   }, []);
 
-  const getMascotLeftForStep = useCallback((stepIdx: number): number => {
+  const getMascotPosForStep = useCallback((stepIdx: number): { left: number; top: number } => {
     const node = nodeRefs.current[stepIdx];
     const container = pathContainerRef.current;
-    if (!node || !container) return 0;
+    if (!node || !container) return { left: 0, top: 0 };
     const nodeRect = node.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    return nodeRect.left - containerRect.left + nodeRect.width / 2 - 32;
+    return {
+      left: nodeRect.left - containerRect.left + nodeRect.width / 2 - 32,
+      top: nodeRect.top - containerRect.top - 72,
+    };
   }, []);
 
   const spawnParticles = (x: number, y: number) => {
@@ -56,10 +59,10 @@ export default function Index() {
 
   const handleStepClick = (stepId: number) => {
     const stepIdx = stepId - 1;
-    const left = getMascotLeftForStep(stepIdx);
+    const pos = getMascotPosForStep(stepIdx);
 
     setIsMoving(true);
-    setMascotPos(left);
+    setMascotPos(pos);
 
     setTimeout(() => {
       setIsMoving(false);
@@ -195,16 +198,16 @@ export default function Index() {
       {/* Main content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 pb-6 flex flex-col gap-5">
 
-        {/* Horizontal path */}
+        {/* Two-row path */}
         <div className="relative" ref={pathContainerRef}>
 
-          {/* Moving mascot — above the track */}
+          {/* Moving mascot */}
           <div
             className="absolute z-20 pointer-events-none"
             style={{
-              top: -72,
-              left: mascotPos,
-              transition: "left 0.5s cubic-bezier(0.34, 1.1, 0.64, 1)",
+              left: mascotPos.left,
+              top: mascotPos.top,
+              transition: "left 0.45s cubic-bezier(0.34, 1.1, 0.64, 1), top 0.45s cubic-bezier(0.34, 1.1, 0.64, 1)",
               width: 64,
             }}
           >
@@ -219,72 +222,80 @@ export default function Index() {
             <MascotCharacter isWalking={isMoving} size={64} expression={showUnlockEffect ? "excited" : "happy"} />
           </div>
 
-          {/* Steps row */}
-          <div className="flex items-center gap-0 overflow-x-auto scrollbar-hide pt-20 pb-4 px-2">
-            {CJM_STEPS.map((step, idx) => {
-              const isActive = step.id === activeStep;
-              const isCompleted = completedSteps.has(step.id);
+          {(() => {
+            const ROW1 = CJM_STEPS.slice(0, 6);  // шаги 1–6 → слева направо
+            const ROW2 = CJM_STEPS.slice(6);      // шаги 7–11 → справа налево (визуально)
 
-              return (
-                <React.Fragment key={step.id}>
-                  {/* Step node + label */}
-                  <div
-                    className="flex flex-col items-center gap-2 flex-shrink-0"
-                    ref={(el) => { nodeRefs.current[idx] = el; }}
-                  >
-                    <StepNode
-                      step={step.id}
-                      total={CJM_STEPS.length}
-                      emoji={step.emoji}
-                      title={step.title}
-                      color={step.color}
-                      isActive={isActive}
-                      isCompleted={isCompleted}
-                      isLocked={false}
-                      onClick={() => handleStepClick(step.id)}
-                      side="right"
-                    />
+            const connectorColor = (idx: number) => completedSteps.has(CJM_STEPS[idx].id)
+              ? `linear-gradient(90deg, ${CJM_STEPS[idx].color}cc, ${CJM_STEPS[idx + 1]?.color ?? CJM_STEPS[idx].color}60)`
+              : "rgba(107,117,201,0.2)";
+
+            return (
+              <div className="flex flex-col pt-20 gap-0">
+
+                {/* Row 1: 1→6, left to right */}
+                <div className="flex items-center justify-center px-6">
+                  {ROW1.map((step, i) => {
+                    const globalIdx = i;
+                    const isActive = step.id === activeStep;
+                    const isCompleted = completedSteps.has(step.id);
+                    return (
+                      <React.Fragment key={step.id}>
+                        <div className="flex-shrink-0" ref={(el) => { nodeRefs.current[globalIdx] = el; }}>
+                          <StepNode step={step.id} total={CJM_STEPS.length} emoji={step.emoji} title={step.title}
+                            color={step.color} isActive={isActive} isCompleted={isCompleted} isLocked={false}
+                            onClick={() => handleStepClick(step.id)} side="right" />
+                        </div>
+                        {i < ROW1.length - 1 && (
+                          <div className="flex-shrink-0 h-0.5 flex-1" style={{ minWidth: 16, maxWidth: 40, background: connectorColor(globalIdx), transition: "background 0.5s" }} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Turn: right-side vertical connector */}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div style={{ width: 2, height: 28, background: completedSteps.has(6) ? `${CJM_STEPS[5].color}cc` : "rgba(107,117,201,0.2)", transition: "background 0.5s" }} />
                   </div>
-
-                  {/* Horizontal connector */}
-                  {idx < CJM_STEPS.length - 1 && (
-                    <div
-                      className="flex-shrink-0 h-0.5 w-6"
-                      style={{
-                        background: isCompleted
-                          ? `linear-gradient(90deg, ${step.color}cc, ${CJM_STEPS[idx + 1].color}60)`
-                          : "rgba(107,117,201,0.2)",
-                        transition: "background 0.5s ease",
-                      }}
-                    />
-                  )}
-                </React.Fragment>
-              );
-            })}
-
-            {/* Finish */}
-            <div className="flex flex-col items-center gap-1 flex-shrink-0 ml-2">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-700"
-                style={{
-                  background: completedSteps.size === CJM_STEPS.length
-                    ? "linear-gradient(135deg, #FFD700, #ff9d00)"
-                    : "rgba(52,58,126,0.3)",
-                  border: completedSteps.size === CJM_STEPS.length
-                    ? "2px solid #FFD700"
-                    : "2px dashed rgba(107,117,201,0.25)",
-                  boxShadow: completedSteps.size === CJM_STEPS.length ? "0 0 24px rgba(255,215,0,0.5)" : "none",
-                }}
-              >
-                🏁
-              </div>
-              {completedSteps.size === CJM_STEPS.length && (
-                <div className="text-xs font-bold font-montserrat animate-star-pop" style={{ color: "#FFD700" }}>
-                  Пройден! 🏆
                 </div>
-              )}
-            </div>
-          </div>
+
+                {/* Row 2: 11→7, right to left (snake) */}
+                <div className="flex items-center justify-center px-6 flex-row-reverse">
+                  {ROW2.map((step, i) => {
+                    const globalIdx = 6 + i;
+                    const isActive = step.id === activeStep;
+                    const isCompleted = completedSteps.has(step.id);
+                    return (
+                      <React.Fragment key={step.id}>
+                        <div className="flex-shrink-0" ref={(el) => { nodeRefs.current[globalIdx] = el; }}>
+                          <StepNode step={step.id} total={CJM_STEPS.length} emoji={step.emoji} title={step.title}
+                            color={step.color} isActive={isActive} isCompleted={isCompleted} isLocked={false}
+                            onClick={() => handleStepClick(step.id)} side="right" />
+                        </div>
+                        {i < ROW2.length - 1 && (
+                          <div className="flex-shrink-0 h-0.5 flex-1" style={{ minWidth: 16, maxWidth: 40, background: connectorColor(globalIdx), transition: "background 0.5s" }} />
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Finish */}
+                  <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                    <div style={{ width: 2, height: 28, background: "rgba(107,117,201,0.2)" }} />
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center text-xl transition-all duration-700"
+                      style={{
+                        background: completedSteps.size === CJM_STEPS.length ? "linear-gradient(135deg, #FFD700, #ff9d00)" : "rgba(52,58,126,0.3)",
+                        border: completedSteps.size === CJM_STEPS.length ? "2px solid #FFD700" : "2px dashed rgba(107,117,201,0.25)",
+                        boxShadow: completedSteps.size === CJM_STEPS.length ? "0 0 24px rgba(255,215,0,0.5)" : "none",
+                      }}>
+                      🏁
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })()}
         </div>
 
         {/* Detail panel */}
