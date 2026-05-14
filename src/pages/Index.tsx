@@ -4,6 +4,8 @@ import MascotCharacter from "@/components/MascotCharacter";
 import StepNode from "@/components/StepNode";
 import StepDetail from "@/components/StepDetail";
 import Icon from "@/components/ui/icon";
+import { fetchAllStepData } from "@/lib/cjmApi";
+import type { StepLink, StepImage } from "@/lib/cjmApi";
 
 export default function Index() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
@@ -14,9 +16,18 @@ export default function Index() {
   const [showUnlockEffect, setShowUnlockEffect] = useState(false);
   const [xp, setXp] = useState(0);
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; emoji: string }[]>([]);
+  const [stepLinks, setStepLinks] = useState<Record<number, StepLink[]>>({});
+  const [stepImages, setStepImages] = useState<Record<number, StepImage[]>>({});
 
   const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const pathContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchAllStepData().then((data) => {
+      setStepLinks(data.links as Record<number, StepLink[]>);
+      setStepImages(data.images as Record<number, StepImage[]>);
+    });
+  }, []);
 
   const getMascotTopForStep = useCallback((stepIdx: number): number => {
     const node = nodeRefs.current[stepIdx];
@@ -302,6 +313,10 @@ export default function Index() {
               key={activeStep}
               step={currentStep}
               onClose={() => setShowDetail(false)}
+              links={stepLinks[currentStep.id] || []}
+              images={stepImages[currentStep.id] || []}
+              onLinksChange={(updated) => setStepLinks((prev) => ({ ...prev, [currentStep.id]: updated }))}
+              onImagesChange={(updated) => setStepImages((prev) => ({ ...prev, [currentStep.id]: updated }))}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full min-h-72 p-8 text-center gap-5">

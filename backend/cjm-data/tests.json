@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "name": "GET all step data",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}
