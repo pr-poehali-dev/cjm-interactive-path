@@ -309,7 +309,7 @@ export default function Index() {
                 <MascotCharacter size={88} expression="happy" />
               </div>
               <div>
-                <p className="text-white font-semibold text-sm font-golos mb-1">Привет! Я твой проводник</p>
+                <p className="text-white font-semibold text-sm font-golos mb-1">Привет! Я Феликс, твой проводник</p>
                 <p className="text-white/40 text-xs font-golos leading-relaxed">
                   Выбирай шаги на карте слева — я буду рассказывать, что происходит на каждом уровне
                 </p>
