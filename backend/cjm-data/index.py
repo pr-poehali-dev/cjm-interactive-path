@@ -18,8 +18,17 @@ def get_s3():
         aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
     )
 
+ALLOWED_TYPES = {
+    "application/pdf": "pdf",
+    "text/html": "html",
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+}
+
 def handler(event: dict, context) -> dict:
-    """CRUD для ссылок и изображений по шагам CJM."""
+    """CRUD для ссылок, изображений и файлов по шагам CJM."""
     cors = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
@@ -44,6 +53,9 @@ def handler(event: dict, context) -> dict:
         cur.execute(f"SELECT id, step_id, url, caption, created_at FROM {SCHEMA}.cjm_step_images ORDER BY created_at")
         images_rows = cur.fetchall()
 
+        cur.execute(f"SELECT id, step_id, name, url, file_type, size_bytes, created_at FROM {SCHEMA}.cjm_step_files ORDER BY created_at")
+        files_rows = cur.fetchall()
+
         conn.close()
 
         links = {}
@@ -60,10 +72,17 @@ def handler(event: dict, context) -> dict:
                 images[sid] = []
             images[sid].append({"id": row[0], "step_id": sid, "url": row[2], "caption": row[3]})
 
+        files = {}
+        for row in files_rows:
+            sid = row[1]
+            if sid not in files:
+                files[sid] = []
+            files[sid].append({"id": row[0], "step_id": sid, "name": row[2], "url": row[3], "file_type": row[4], "size_bytes": row[5]})
+
         return {
             "statusCode": 200,
             "headers": cors,
-            "body": json.dumps({"links": links, "images": images}),
+            "body": json.dumps({"links": links, "images": images, "files": files}),
         }
 
     # POST /link — добавить ссылку
@@ -120,7 +139,42 @@ def handler(event: dict, context) -> dict:
             "body": json.dumps({"id": new_id, "step_id": step_id, "url": cdn_url, "caption": caption}),
         }
 
-    # DELETE — удалить ссылку или изображение
+    # POST /file — загрузить файл (html, pdf, png) в S3
+    if method == "POST" and params.get("type") == "file":
+        step_id = int(body["step_id"])
+        file_name = body["name"]
+        file_data = body["file_base64"]
+        content_type = body.get("content_type", "application/octet-stream")
+        size_bytes = body.get("size_bytes", 0)
+
+        if content_type not in ALLOWED_TYPES:
+            return {"statusCode": 400, "headers": cors, "body": json.dumps({"error": "Недопустимый тип файла"})}
+
+        ext = ALLOWED_TYPES[content_type]
+        file_bytes = base64.b64decode(file_data)
+        key = f"cjm/files/step_{step_id}/{uuid.uuid4()}.{ext}"
+
+        s3 = get_s3()
+        s3.put_object(Bucket="files", Key=key, Body=file_bytes, ContentType=content_type)
+        cdn_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO {SCHEMA}.cjm_step_files (step_id, name, url, file_type, size_bytes) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+            (step_id, file_name, cdn_url, ext, size_bytes),
+        )
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        conn.close()
+
+        return {
+            "statusCode": 200,
+            "headers": cors,
+            "body": json.dumps({"id": new_id, "step_id": step_id, "name": file_name, "url": cdn_url, "file_type": ext, "size_bytes": size_bytes}),
+        }
+
+    # DELETE — удалить ссылку, изображение или файл
     if method == "DELETE":
         item_type = params.get("type")
         item_id = int(params.get("id", 0))
@@ -131,9 +185,9 @@ def handler(event: dict, context) -> dict:
         if item_type == "link":
             cur.execute(f"DELETE FROM {SCHEMA}.cjm_step_links WHERE id = %s", (item_id,))
         elif item_type == "image":
-            cur.execute(f"SELECT url FROM {SCHEMA}.cjm_step_images WHERE id = %s", (item_id,))
-            row = cur.fetchone()
             cur.execute(f"DELETE FROM {SCHEMA}.cjm_step_images WHERE id = %s", (item_id,))
+        elif item_type == "file":
+            cur.execute(f"DELETE FROM {SCHEMA}.cjm_step_files WHERE id = %s", (item_id,))
 
         conn.commit()
         conn.close()

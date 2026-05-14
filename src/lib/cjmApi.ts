@@ -14,9 +14,19 @@ export interface StepImage {
   caption?: string;
 }
 
+export interface StepFile {
+  id: number;
+  step_id: number;
+  name: string;
+  url: string;
+  file_type: string;
+  size_bytes?: number;
+}
+
 export interface AllStepData {
   links: Record<number, StepLink[]>;
   images: Record<number, StepImage[]>;
+  files: Record<number, StepFile[]>;
 }
 
 export async function fetchAllStepData(): Promise<AllStepData> {
@@ -59,6 +69,33 @@ export async function addImage(
 
 export async function deleteImage(id: number): Promise<void> {
   await fetch(`${API_URL}?type=image&id=${id}`, { method: "DELETE" });
+}
+
+export async function addFile(step_id: number, file: File): Promise<StepFile> {
+  const base64 = await fileToBase64(file);
+  const res = await fetch(`${API_URL}?type=file`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      step_id,
+      name: file.name,
+      file_base64: base64,
+      content_type: file.type || "application/octet-stream",
+      size_bytes: file.size,
+    }),
+  });
+  return res.json();
+}
+
+export async function deleteFile(id: number): Promise<void> {
+  await fetch(`${API_URL}?type=file&id=${id}`, { method: "DELETE" });
+}
+
+export function formatFileSize(bytes?: number): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function fileToBase64(file: File): Promise<string> {

@@ -1,16 +1,28 @@
 import React, { useState } from "react";
 import type { CJMStep } from "@/data/cjmSteps";
 import Icon from "@/components/ui/icon";
-import type { StepLink, StepImage } from "@/lib/cjmApi";
-import { addLink, deleteLink, addImage, deleteImage } from "@/lib/cjmApi";
+import type { StepLink, StepImage, StepFile } from "@/lib/cjmApi";
+import { addLink, deleteLink, addImage, deleteImage, addFile, deleteFile, formatFileSize } from "@/lib/cjmApi";
+
+const FILE_ICONS: Record<string, string> = {
+  pdf: "FileText",
+  html: "FileCode",
+  png: "Image",
+  jpg: "Image",
+  jpeg: "Image",
+  gif: "Image",
+  webp: "Image",
+};
 
 interface StepDetailProps {
   step: CJMStep;
   onClose: () => void;
   links: StepLink[];
   images: StepImage[];
+  files: StepFile[];
   onLinksChange: (links: StepLink[]) => void;
   onImagesChange: (images: StepImage[]) => void;
+  onFilesChange: (files: StepFile[]) => void;
 }
 
 const StepDetail: React.FC<StepDetailProps> = ({
@@ -18,8 +30,10 @@ const StepDetail: React.FC<StepDetailProps> = ({
   onClose,
   links,
   images,
+  files,
   onLinksChange,
   onImagesChange,
+  onFilesChange,
 }) => {
   const [comments, setComments] = useState<{ id: number; text: string; time: string }[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -27,6 +41,7 @@ const StepDetail: React.FC<StepDetailProps> = ({
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [savingLink, setSavingLink] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const addComment = () => {
     if (!newComment.trim()) return;
@@ -71,6 +86,24 @@ const StepDetail: React.FC<StepDetailProps> = ({
   const handleDeleteImage = async (id: number) => {
     await deleteImage(id);
     onImagesChange(images.filter((img) => img.id !== id));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const saved = await addFile(step.id, file);
+      onFilesChange([...files, saved]);
+    } finally {
+      setUploadingFile(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteFile = async (id: number) => {
+    await deleteFile(id);
+    onFilesChange(files.filter((f) => f.id !== id));
   };
 
   return (
@@ -203,6 +236,66 @@ const StepDetail: React.FC<StepDetailProps> = ({
             <Icon name={uploadingImage ? "Loader" : "Image"} size={16} className={uploadingImage ? "animate-spin" : ""} />
             {uploadingImage ? "Загружаю в облако..." : "Прикрепить изображение"}
             <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+          </label>
+        </div>
+
+        {/* Files — persistent */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-bold uppercase tracking-wider" style={{ color: step.color }}>
+              Файлы{files.length > 0 && <span className="text-white/30 ml-1">({files.length})</span>}
+            </div>
+          </div>
+          {files.length > 0 && (
+            <div className="space-y-1.5 mb-2">
+              {files.map((f) => (
+                <div key={f.id} className="flex items-center gap-2 group">
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center gap-2.5 text-sm font-golos px-3 py-2 rounded-xl transition-all hover:bg-white/5 min-w-0"
+                    style={{ background: "rgba(52,58,126,0.3)", border: "1px solid rgba(107,117,201,0.2)" }}
+                  >
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${step.color}20`, border: `1px solid ${step.color}30` }}>
+                      <Icon name={FILE_ICONS[f.file_type] || "File"} size={15} style={{ color: step.color }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white/80 truncate text-xs font-medium">{f.name}</div>
+                      <div className="text-white/30 text-xs uppercase tracking-wider">
+                        {f.file_type}{f.size_bytes ? ` · ${formatFileSize(f.size_bytes)}` : ""}
+                      </div>
+                    </div>
+                    <Icon name="Download" size={13} className="opacity-40 flex-shrink-0" />
+                  </a>
+                  <button
+                    className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20"
+                    onClick={() => handleDeleteFile(f.id)}
+                  >
+                    <Icon name="Trash2" size={13} className="text-red-400" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <label
+            className="flex items-center gap-2 text-sm cursor-pointer px-3 py-2.5 rounded-xl transition-all hover:bg-white/5 font-golos"
+            style={{
+              background: "rgba(52,58,126,0.3)",
+              border: `1px dashed ${uploadingFile ? step.color : "rgba(107,117,201,0.4)"}`,
+              color: uploadingFile ? step.color : "rgba(255,255,255,0.4)",
+            }}
+          >
+            <Icon name={uploadingFile ? "Loader" : "Paperclip"} size={16} className={uploadingFile ? "animate-spin" : ""} />
+            {uploadingFile ? "Загружаю файл..." : "Прикрепить файл (PDF, HTML, PNG)"}
+            <input
+              type="file"
+              accept=".pdf,.html,.png,application/pdf,text/html,image/png"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={uploadingFile}
+            />
           </label>
         </div>
 

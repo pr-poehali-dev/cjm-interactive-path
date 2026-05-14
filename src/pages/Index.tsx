@@ -5,7 +5,7 @@ import StepNode from "@/components/StepNode";
 import StepDetail from "@/components/StepDetail";
 import Icon from "@/components/ui/icon";
 import { fetchAllStepData } from "@/lib/cjmApi";
-import type { StepLink, StepImage } from "@/lib/cjmApi";
+import type { StepLink, StepImage, StepFile } from "@/lib/cjmApi";
 
 export default function Index() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
@@ -18,6 +18,7 @@ export default function Index() {
   const [particles, setParticles] = useState<{ id: number; x: number; y: number; emoji: string }[]>([]);
   const [stepLinks, setStepLinks] = useState<Record<number, StepLink[]>>({});
   const [stepImages, setStepImages] = useState<Record<number, StepImage[]>>({});
+  const [stepFiles, setStepFiles] = useState<Record<number, StepFile[]>>({});
 
   const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const pathContainerRef = useRef<HTMLDivElement>(null);
@@ -26,6 +27,7 @@ export default function Index() {
     fetchAllStepData().then((data) => {
       setStepLinks(data.links as Record<number, StepLink[]>);
       setStepImages(data.images as Record<number, StepImage[]>);
+      setStepFiles(data.files as Record<number, StepFile[]>);
     });
   }, []);
 
@@ -315,8 +317,10 @@ export default function Index() {
               onClose={() => setShowDetail(false)}
               links={stepLinks[currentStep.id] || []}
               images={stepImages[currentStep.id] || []}
+              files={stepFiles[currentStep.id] || []}
               onLinksChange={(updated) => setStepLinks((prev) => ({ ...prev, [currentStep.id]: updated }))}
               onImagesChange={(updated) => setStepImages((prev) => ({ ...prev, [currentStep.id]: updated }))}
+              onFilesChange={(updated) => setStepFiles((prev) => ({ ...prev, [currentStep.id]: updated }))}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full min-h-72 p-8 text-center gap-5">
