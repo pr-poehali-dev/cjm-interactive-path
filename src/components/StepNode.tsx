@@ -22,55 +22,19 @@ const StepNode: React.FC<StepNodeProps> = ({
   isCompleted,
   isLocked,
   onClick,
-  side,
 }) => {
   return (
     <div
-      className={`flex items-center gap-3 ${side === "right" ? "flex-row" : "flex-row-reverse"}`}
-      style={{ width: "100%" }}
+      className={`flex flex-col items-center gap-2 cursor-pointer group ${isLocked ? "opacity-40 cursor-not-allowed" : ""}`}
+      style={{ width: 100 }}
+      onClick={isLocked ? undefined : onClick}
     >
-      {/* Label */}
+      {/* Node circle */}
       <div
-        className={`flex-1 ${side === "right" ? "text-left" : "text-right"} cursor-pointer group`}
-        onClick={onClick}
-        style={{ maxWidth: "calc(50% - 52px)" }}
-      >
-        <div
-          className={`inline-block px-3 py-1.5 rounded-xl transition-all duration-300 ${
-            isLocked ? "opacity-40" : "opacity-100"
-          } ${isActive ? "scale-105" : "hover:scale-102"}`}
-          style={{
-            background: isActive
-              ? `linear-gradient(135deg, ${color}40, ${color}20)`
-              : "rgba(52, 58, 126, 0.3)",
-            border: isActive ? `1px solid ${color}80` : "1px solid rgba(107, 117, 201, 0.2)",
-          }}
-        >
-          <div
-            className="text-xs font-semibold font-golos"
-            style={{ color: isActive ? color : "rgba(255,255,255,0.5)" }}
-          >
-            LVL {step}
-          </div>
-          <div
-            className={`text-sm font-medium font-golos leading-tight ${
-              isActive ? "text-white" : isLocked ? "text-white/30" : "text-white/70"
-            }`}
-          >
-            {title}
-          </div>
-        </div>
-      </div>
-
-      {/* Node */}
-      <div
-        className={`step-node relative flex-shrink-0 flex items-center justify-center rounded-full cursor-pointer
-          ${isActive ? "active" : ""}
-          ${isLocked ? "opacity-40 cursor-not-allowed" : ""}
-        `}
+        className={`step-node relative flex-shrink-0 flex items-center justify-center rounded-full transition-all duration-300 ${isActive ? "active scale-110" : "hover:scale-105"}`}
         style={{
-          width: 52,
-          height: 52,
+          width: 56,
+          height: 56,
           background: isCompleted
             ? `linear-gradient(135deg, ${color}, ${color}cc)`
             : isActive
@@ -89,7 +53,6 @@ const StepNode: React.FC<StepNodeProps> = ({
               ? `0 0 12px ${color}60`
               : "none",
         }}
-        onClick={isLocked ? undefined : onClick}
       >
         {isCompleted && !isActive ? (
           <span className="text-xl">✓</span>
@@ -120,8 +83,23 @@ const StepNode: React.FC<StepNodeProps> = ({
         </div>
       </div>
 
-      {/* Spacer for the other side */}
-      <div style={{ flex: 1, maxWidth: "calc(50% - 52px)" }} />
+      {/* Title below */}
+      <div className="text-center px-1">
+        <div
+          className="text-[11px] font-semibold font-golos leading-none mb-0.5"
+          style={{ color: isActive ? color : "rgba(255,255,255,0.4)" }}
+        >
+          LVL {step}
+        </div>
+        <div
+          className={`text-sm font-semibold font-golos leading-tight ${
+            isActive ? "text-white" : isLocked ? "text-white/30" : "text-white/65"
+          }`}
+          style={{ fontSize: "0.82rem" }}
+        >
+          {title}
+        </div>
+      </div>
     </div>
   );
 };

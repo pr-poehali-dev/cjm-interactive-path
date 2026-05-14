@@ -31,13 +31,13 @@ export default function Index() {
     });
   }, []);
 
-  const getMascotTopForStep = useCallback((stepIdx: number): number => {
+  const getMascotLeftForStep = useCallback((stepIdx: number): number => {
     const node = nodeRefs.current[stepIdx];
     const container = pathContainerRef.current;
-    if (!node || !container) return 8;
+    if (!node || !container) return 0;
     const nodeRect = node.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    return nodeRect.top - containerRect.top + nodeRect.height / 2 - 32;
+    return nodeRect.left - containerRect.left + nodeRect.width / 2 - 32;
   }, []);
 
   const spawnParticles = (x: number, y: number) => {
@@ -56,10 +56,10 @@ export default function Index() {
 
   const handleStepClick = (stepId: number) => {
     const stepIdx = stepId - 1;
-    const top = getMascotTopForStep(stepIdx);
+    const left = getMascotLeftForStep(stepIdx);
 
     setIsMoving(true);
-    setMascotPos(top);
+    setMascotPos(left);
 
     setTimeout(() => {
       setIsMoving(false);
@@ -86,7 +86,6 @@ export default function Index() {
 
   const currentStep = activeStep ? CJM_STEPS.find((s) => s.id === activeStep)! : null;
   const progressPercent = (completedSteps.size / CJM_STEPS.length) * 100;
-  const zigzagSide = (idx: number): "left" | "right" => (idx % 2 === 0 ? "right" : "left");
 
   return (
     <div
@@ -194,19 +193,18 @@ export default function Index() {
       </header>
 
       {/* Main content */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 pb-12 flex gap-5 items-start">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 pb-6 flex flex-col gap-5">
 
-        {/* Path */}
-        <div className="flex-1 min-w-0 relative" ref={pathContainerRef}>
+        {/* Horizontal path */}
+        <div className="relative" ref={pathContainerRef}>
 
-          {/* Moving mascot */}
+          {/* Moving mascot — above the track */}
           <div
             className="absolute z-20 pointer-events-none"
             style={{
-              top: mascotPos,
-              left: "50%",
-              transform: "translateX(-50%)",
-              transition: "top 0.5s cubic-bezier(0.34, 1.1, 0.64, 1)",
+              top: -72,
+              left: mascotPos,
+              transition: "left 0.5s cubic-bezier(0.34, 1.1, 0.64, 1)",
               width: 64,
             }}
           >
@@ -221,33 +219,18 @@ export default function Index() {
             <MascotCharacter isWalking={isMoving} size={64} expression={showUnlockEffect ? "excited" : "happy"} />
           </div>
 
-          {/* Steps list */}
-          <div className="pt-4 space-y-1">
+          {/* Steps row */}
+          <div className="flex items-center gap-0 overflow-x-auto scrollbar-hide pt-20 pb-4 px-2">
             {CJM_STEPS.map((step, idx) => {
-              const side = zigzagSide(idx);
               const isActive = step.id === activeStep;
               const isCompleted = completedSteps.has(step.id);
 
               return (
-                <div key={step.id} className="relative">
-                  {/* Connector */}
-                  {idx < CJM_STEPS.length - 1 && (
-                    <div
-                      className="absolute left-1/2 -translate-x-px z-0"
-                      style={{
-                        top: "calc(100% - 4px)",
-                        width: 2,
-                        height: 18,
-                        background: isCompleted
-                          ? `linear-gradient(180deg, ${step.color}cc, ${CJM_STEPS[idx + 1].color}60)`
-                          : "rgba(107,117,201,0.15)",
-                        transition: "background 0.5s ease",
-                      }}
-                    />
-                  )}
+                <React.Fragment key={step.id}>
+                  {/* Step node + label */}
                   <div
+                    className="flex flex-col items-center gap-2 flex-shrink-0"
                     ref={(el) => { nodeRefs.current[idx] = el; }}
-                    className="relative z-10 py-1"
                   >
                     <StepNode
                       step={step.id}
@@ -259,49 +242,55 @@ export default function Index() {
                       isCompleted={isCompleted}
                       isLocked={false}
                       onClick={() => handleStepClick(step.id)}
-                      side={side}
+                      side="right"
                     />
                   </div>
-                </div>
+
+                  {/* Horizontal connector */}
+                  {idx < CJM_STEPS.length - 1 && (
+                    <div
+                      className="flex-shrink-0 h-0.5 w-6"
+                      style={{
+                        background: isCompleted
+                          ? `linear-gradient(90deg, ${step.color}cc, ${CJM_STEPS[idx + 1].color}60)`
+                          : "rgba(107,117,201,0.2)",
+                        transition: "background 0.5s ease",
+                      }}
+                    />
+                  )}
+                </React.Fragment>
               );
             })}
-          </div>
 
-          {/* Finish */}
-          <div className="mt-8 flex flex-col items-center gap-2 pb-4">
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-700"
-              style={{
-                background:
-                  completedSteps.size === CJM_STEPS.length
+            {/* Finish */}
+            <div className="flex flex-col items-center gap-1 flex-shrink-0 ml-2">
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-700"
+                style={{
+                  background: completedSteps.size === CJM_STEPS.length
                     ? "linear-gradient(135deg, #FFD700, #ff9d00)"
                     : "rgba(52,58,126,0.3)",
-                border:
-                  completedSteps.size === CJM_STEPS.length
+                  border: completedSteps.size === CJM_STEPS.length
                     ? "2px solid #FFD700"
                     : "2px dashed rgba(107,117,201,0.25)",
-                boxShadow:
-                  completedSteps.size === CJM_STEPS.length ? "0 0 24px rgba(255,215,0,0.5)" : "none",
-              }}
-            >
-              🏁
-            </div>
-            {completedSteps.size === CJM_STEPS.length && (
-              <div className="text-sm font-bold font-montserrat animate-star-pop" style={{ color: "#FFD700" }}>
-                Путь пройден! 🏆
+                  boxShadow: completedSteps.size === CJM_STEPS.length ? "0 0 24px rgba(255,215,0,0.5)" : "none",
+                }}
+              >
+                🏁
               </div>
-            )}
+              {completedSteps.size === CJM_STEPS.length && (
+                <div className="text-xs font-bold font-montserrat animate-star-pop" style={{ color: "#FFD700" }}>
+                  Пройден! 🏆
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Detail panel */}
         <div
-          className="rounded-2xl overflow-hidden flex-shrink-0"
+          className="rounded-2xl overflow-hidden w-full"
           style={{
-            width: 340,
-            maxHeight: "calc(100vh - 180px)",
-            position: "sticky",
-            top: 24,
             background: "rgba(10, 13, 46, 0.92)",
             border: currentStep ? `1px solid ${currentStep.color}50` : "1px solid rgba(107,117,201,0.15)",
             backdropFilter: "blur(24px)",
