@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { CJMStep } from "@/data/cjmSteps";
 import Icon from "@/components/ui/icon";
 import type { StepLink, StepImage, StepFile } from "@/lib/cjmApi";
@@ -42,6 +42,13 @@ const StepDetail: React.FC<StepDetailProps> = ({
   const [savingLink, setSavingLink] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxUrl(null); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const addComment = () => {
     if (!newComment.trim()) return;
@@ -107,6 +114,30 @@ const StepDetail: React.FC<StepDetailProps> = ({
   };
 
   return (
+    <>
+    {/* Lightbox */}
+    {lightboxUrl && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: "rgba(5, 7, 30, 0.95)", backdropFilter: "blur(12px)" }}
+        onClick={() => setLightboxUrl(null)}
+      >
+        <button
+          className="absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-white/10"
+          style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          <Icon name="X" size={18} className="text-white" />
+        </button>
+        <img
+          src={lightboxUrl}
+          alt=""
+          className="max-w-full max-h-full rounded-2xl"
+          style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.7)", objectFit: "contain" }}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+    )}
     <div className="detail-panel h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div
@@ -213,11 +244,18 @@ const StepDetail: React.FC<StepDetailProps> = ({
           {images.length > 0 && (
             <div className="grid grid-cols-2 gap-2 mb-2">
               {images.map((img) => (
-                <div key={img.id} className="relative group rounded-xl overflow-hidden aspect-video bg-black/20">
-                  <img src={img.url} alt={img.caption || ""} className="w-full h-full object-cover" />
+                <div key={img.id} className="relative group rounded-xl overflow-hidden aspect-video bg-black/20 cursor-zoom-in"
+                  onClick={() => setLightboxUrl(img.url)}>
+                  <img src={img.url} alt={img.caption || ""} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  {/* Expand hint */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: "rgba(5,7,30,0.4)" }}>
+                    <Icon name="Maximize2" size={20} className="text-white drop-shadow-lg" />
+                  </div>
+                  {/* Delete */}
                   <button
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleDeleteImage(img.id)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
                   >
                     <Icon name="X" size={12} className="text-white" />
                   </button>
@@ -412,6 +450,7 @@ const StepDetail: React.FC<StepDetailProps> = ({
 
       </div>
     </div>
+    </>
   );
 };
 
